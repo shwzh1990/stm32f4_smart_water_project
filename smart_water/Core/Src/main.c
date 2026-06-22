@@ -19,13 +19,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
-#include "log.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "log.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -91,9 +91,9 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
-  log_init(LOG_MSG_INFO);
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-
+  log_init(LOG_MSG_ERROR);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -189,28 +189,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
-{
-  if(huart->Instance == USART1)
-  {
-     if(Log.p_ring_buff->finish_copy_flag == true)
-     {
-        if(ring_buff_is_empty(Log.p_ring_buff))
-        {
-           Log.tx_busy = false;
-        }
-        else
-        {
-         const uint16_t len = ring_buff_get(Log.p_ring_buff);
-         HAL_UART_Transmit_DMA(&huart1, Log.p_ring_buff->send_buff, len);
-          Log.tx_busy = true;
-        }
-  }
-  else
-  {
-    Log.tx_busy =false;
-  }
-  }
-}
