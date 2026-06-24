@@ -28,11 +28,11 @@ void log_write(log_level_t loglevel, char* fmt, ...)
 {
 
   char temp_buff[512] = {'\0'};
-  if(Log.loglevel >= loglevel)
+  if(loglevel <= Log.loglevel)
   {
     va_list args;
     va_start(args, fmt);
-    sprintf((char*)temp_buff, "%s",log_suffix[Log.loglevel]);
+    sprintf((char*)temp_buff, "%s",log_suffix[loglevel]);
     const uint16_t n = vsprintf((char*)temp_buff+LOG_SUFFIX_LEN, fmt, args);
     temp_buff[LOG_SUFFIX_LEN + n] = '\n';
     va_end(args);

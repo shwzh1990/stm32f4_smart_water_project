@@ -20,12 +20,17 @@
 #include "main.h"
 #include "dma.h"
 #include "i2c.h"
+#include "spi.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "log.h"
+#include <stdint.h>
+#include <string.h>
+#include "eeprom.h"
+#include "flash.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -92,20 +97,30 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_I2C1_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   log_init(LOG_MSG_ERROR);
+//  eeprom_init();
+  const uint8_t test_buff[] = {"This is for the eeprom test....\n"};
+  uint8_t read_buff[100] = {0};
+  flash_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    //HAL_UART_Transmit_DMA(&huart1,test_msg, sizeof(test_msg));
-    //HAL_Delay(1000);
-    LOG_INFO("Hello world!!!");
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+  const uint16_t device_id = flash_get_device_id();
+  LOG_INFO("the device id is %u", device_id);  
+  flash_erase_sector(0x0);
+  flash_write(0, (uint8_t*)test_buff, sizeof(test_buff));
+  flash_read(0, read_buff, sizeof(test_buff));
+  LOG_INFO("Read from flash: %s", read_buff);  
+  HAL_Delay(100);
+  while(1);
   }
   /* USER CODE END 3 */
 }
@@ -156,7 +171,29 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
+{
+  if(huart->Instance == USART1)
+  {
+     if(Log.p_ring_buff->finish_copy_flag == true)
+     {
+        if(ring_buff_is_empty(Log.p_ring_buff))
+        {
+           Log.tx_busy = false;
+        }
+        else
+        {
+         const uint16_t len = ring_buff_get(Log.p_ring_buff);
+         HAL_UART_Transmit_DMA(&huart1, Log.p_ring_buff->send_buff, len);
+          Log.tx_busy = true;
+        }
+  }
+  else
+  {
+    Log.tx_busy =false;
+  }
+  }
+}
 /* USER CODE END 4 */
 
 /**
