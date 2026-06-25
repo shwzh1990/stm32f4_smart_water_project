@@ -21,12 +21,14 @@
 #include "dma.h"
 #include "i2c.h"
 #include "spi.h"
+#include "stm32f4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "log.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include "eeprom.h"
@@ -101,15 +103,14 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   log_init(LOG_MSG_ERROR);
+  eeprom_init();
+  flash_init();
   const uint8_t test_buff[] = {"This is for the disk test.... here is some text: \
   The terminal cursor pulsed with the steady, rhythmic beat of an artificial heart.\
   In the dim, fluorescent chill of the Level 4 lab at Teletrac Navman’s Auckland headquarters, \
   Shi Weizhong sat motionless, his face illuminated by the amber glow of a high-refresh-rate monitor.\
-   Outside, the rain was a relentless, horizontal sheet sweeping across Flat Bush this is !@#@%$$#^%$^&%$#^&%^&"};
+  // Outside, the rain was a relentless, horizontal sheet sweeping across Flat Bush this is !@#@%$$#^%$^&%$#^&%^&"};
   uint8_t read_buff[sizeof(test_buff)] = {0};
-  
-  LOG_INFO("Before register....\n");
-  HAL_Delay(100);
   flash_driver_register();
   eeprom_driver_register();
   if(disk_init() == false)
@@ -120,7 +121,7 @@ int main(void)
   {
     LOG_INFO("Disk initialization successful!!");
   }
-  HAL_Delay(100); 
+  //HAL_Delay(100); 
   /* USER CODE END 2 */
 
   /* Infinite loop ////*/
@@ -129,11 +130,11 @@ int main(void)
   {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-      p_disk->write(0x00, test_buff, sizeof(test_buff));
+    
+      p_disk->write(0x00, (uint8_t*)test_buff, sizeof(test_buff));
       p_disk->read(0x00, read_buff, sizeof(read_buff));
       LOG_INFO("Disk read: %s", read_buff);
       while(1);
-
 
   }
   /* USER CODE END 3 */

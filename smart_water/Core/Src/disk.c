@@ -13,16 +13,10 @@ bool disk_init(void)
   do{
      if(p_current == NULL)
      {
-        break;
+        return false;
      }
     if((p_current->disk_config.init != NULL) && (p_current->disk_config.init() == true))
      {
-        /*
-        uint8_t temp_buff[20];
-        p_current->disk_config.write(0x0, (uint8_t*)"Disk test", sizeof("Disk test"));
-        p_current->disk_config.read(0x0, (uint8_t*)temp_buff, sizeof(temp_buff));
-        LOG_INFO("Disk test read: %s", temp_buff); 
-        */
         p_disk = &p_current->disk_config; 
       return true;
 

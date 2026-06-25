@@ -1,19 +1,25 @@
 #include "eeprom.h"
 #include "log.h"
 #include "disk.h"
+#include "stm32f4xx_hal.h"
 #define WRITE 0u
 #define READ  1u
-#define EEPROM_ADDR 0x60
+#define EEPROM_ADDR 0xa0
 
-#define EEPROM_ADDR_READ 0x61u
-#define EEPROM_ADDR_WRITE 0x60u
+#define EEPROM_ADDR_READ 0xa1u
+#define EEPROM_ADDR_WRITE 0xa0u
 
 bool eeprom_init(void)
 {
   if(HAL_I2C_IsDeviceReady(&hi2c1, EEPROM_ADDR_WRITE, 5,0xFF) != HAL_OK)
   {
     LOG_ERROR("I2C init failed %s", __FUNCTION__);
+    HAL_Delay(1000);
     return false;
+  }
+  else
+  {
+    LOG_INFO("I2C initialise done!!");
   }
   return true;
 }
