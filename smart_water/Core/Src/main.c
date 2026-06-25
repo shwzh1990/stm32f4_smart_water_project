@@ -31,6 +31,7 @@
 #include <string.h>
 #include "eeprom.h"
 #include "flash.h"
+#include "disk.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,27 +101,40 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   log_init(LOG_MSG_ERROR);
-//  eeprom_init();
-  const uint8_t test_buff[] = {"This is for the eeprom test....\n"};
-  uint8_t read_buff[100] = {0};
-  flash_init();
+  const uint8_t test_buff[] = {"This is for the disk test.... here is some text: \
+  The terminal cursor pulsed with the steady, rhythmic beat of an artificial heart.\
+  In the dim, fluorescent chill of the Level 4 lab at Teletrac Navman’s Auckland headquarters, \
+  Shi Weizhong sat motionless, his face illuminated by the amber glow of a high-refresh-rate monitor.\
+   Outside, the rain was a relentless, horizontal sheet sweeping across Flat Bush this is !@#@%$$#^%$^&%$#^&%^&"};
+  uint8_t read_buff[sizeof(test_buff)] = {0};
+  
+  LOG_INFO("Before register....\n");
+  HAL_Delay(100);
+  flash_driver_register();
+  eeprom_driver_register();
+  if(disk_init() == false)
+  {
+    LOG_ERROR("Disk initialization failed!!");
+  }
+  else
+  {
+    LOG_INFO("Disk initialization successful!!");
+  }
+  HAL_Delay(100); 
   /* USER CODE END 2 */
 
-  /* Infinite loop */
+  /* Infinite loop ////*/
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
-  const uint16_t device_id = flash_get_device_id();
-  LOG_INFO("the device id is %u", device_id);  
-  flash_erase_sector(0x0);
-  flash_write(0, (uint8_t*)test_buff, sizeof(test_buff));
-  flash_read(0, read_buff, sizeof(test_buff));
-  LOG_INFO("Read from flash: %s", read_buff);  
-  HAL_Delay(100);
-  while(1);
+      p_disk->write(0x00, test_buff, sizeof(test_buff));
+      p_disk->read(0x00, read_buff, sizeof(read_buff));
+      LOG_INFO("Disk read: %s", read_buff);
+      while(1);
+
+
   }
   /* USER CODE END 3 */
 }

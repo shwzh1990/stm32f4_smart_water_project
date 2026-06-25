@@ -1,9 +1,12 @@
 #include "flash.h"
 #include "log.h"
+#include "disk.h"
+#include <string.h>
 #define ID_CMD  0xABu
+#define FLASH_SECTOR_SIZE 4096u
 
 
-
+static bool is_flash_busy(void);
 static void flash_cs_on(void)
 {
   HAL_GPIO_WritePin(F_CS_GPIO_Port, F_CS_Pin, GPIO_PIN_RESET);
@@ -31,6 +34,19 @@ static void flash_write_disable(void)
   flash_cs_off();
 }
 
+static void flash_erase_sector(uint32_t address)
+{
+  const uint8_t sector_erase_cmd = 0x20;
+  flash_write_enable();
+  flash_cs_on();
+  uint8_t cmd_buff[4] = {sector_erase_cmd, (address >> 16) & 0xFF, (address >> 8) & 0xFF, address & 0xFF};
+  HAL_SPI_Transmit(&hspi1, cmd_buff, sizeof(cmd_buff), 0xFF);
+  flash_cs_off();
+  while(is_flash_busy())
+  {
+    HAL_Delay(5); // Wait for the flash to be ready
+  }
+}
 static uint16_t flash_read_registers_1(void)
 {
   const uint8_t read_status_cmd = 0x05;
@@ -99,7 +115,7 @@ uint16_t flash_get_device_id(void)
   return manufacture_id;
 }
 
-void flash_write(uint32_t address, uint8_t* buff, uint16_t size)
+void flash_write_page(uint32_t address, uint8_t* buff, uint16_t size)
 {
   const uint16_t page_size = 256;
   uint16_t bytes_written = 0;
@@ -117,12 +133,44 @@ void flash_write(uint32_t address, uint8_t* buff, uint16_t size)
     {
       HAL_Delay(5); // Wait for the flash to be ready
     }
+    flash_write_disable();
     address += bytes_to_write;
     bytes_written += bytes_to_write;
   }
 }
 
-void flash_read(uint32_t address, uint8_t* rbuff, uint16_t size)
+uint8_t temp_read_buff[FLASH_SECTOR_SIZE] = {0}; // Buffer to hold data for writing
+void flash_write(uint32_t address, uint8_t* buff, uint32_t size)
+{
+   uint32_t header_address = address & 0xFFFFF000; // Align to 4KB boundary
+   uint32_t offset = address - header_address;
+   uint32_t write_size_available_in_sector = 4096 - offset; // Calculate how much space is available in the sector from the offset
+   do
+   {
+     flash_read(header_address, temp_read_buff, 4096); // Read the entire sector into the buffer
+     flash_erase_sector(header_address);
+     if(size > write_size_available_in_sector)
+     {
+       memcpy(temp_read_buff + offset, buff, write_size_available_in_sector);
+       flash_write_page(header_address, temp_read_buff, sizeof(temp_read_buff));
+       size -= write_size_available_in_sector;
+       write_size_available_in_sector = FLASH_SECTOR_SIZE;
+       header_address += FLASH_SECTOR_SIZE;
+       offset = 0;
+     }
+     else
+     {
+       memcpy(temp_read_buff + offset, buff, size);
+       flash_write_page(header_address, temp_read_buff, sizeof(temp_read_buff));
+     }
+     
+
+   }while(size > write_size_available_in_sector);
+      
+
+}
+
+void flash_read(uint32_t address, uint8_t* rbuff, uint32_t size)
 {
   const uint8_t read_data_cmd = 0x03;
   flash_cs_on();
@@ -131,17 +179,17 @@ void flash_read(uint32_t address, uint8_t* rbuff, uint16_t size)
   HAL_SPI_Receive(&hspi1, rbuff, size, 0xFF);
   flash_cs_off();
 }
+static const disk_config_link_list_t flash_disk = {
+    .disk_config = {
+      .init = flash_init,
+      .write = flash_write,
+      .read = flash_read,
+      .disk_erase = chip_erase
+    },
+    .next = NULL
+  };
 
-void flash_erase_sector(uint32_t address)
+void flash_driver_register(void)
 {
-  const uint8_t sector_erase_cmd = 0x20;
-  flash_write_enable();
-  flash_cs_on();
-  uint8_t cmd_buff[4] = {sector_erase_cmd, (address >> 16) & 0xFF, (address >> 8) & 0xFF, address & 0xFF};
-  HAL_SPI_Transmit(&hspi1, cmd_buff, sizeof(cmd_buff), 0xFF);
-  flash_cs_off();
-  while(is_flash_busy())
-  {
-    HAL_Delay(5); // Wait for the flash to be ready
-  }
+   disk_register(&flash_disk);
 }

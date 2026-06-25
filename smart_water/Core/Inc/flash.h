@@ -8,8 +8,12 @@ bool flash_init(void);
 
 uint16_t flash_get_device_id(void);
 
-void flash_write(uint32_t address, uint8_t* buff, uint16_t size);
+void flash_write(uint32_t address, uint8_t* buff, uint32_t size);
 
-void flash_read(uint32_t address, uint8_t* rbuff, uint16_t size);
+void flash_read(uint32_t address, uint8_t* rbuff, uint32_t size);
+
+void chip_erase(void);
+
+void flash_driver_register(void);
 
 #endif
