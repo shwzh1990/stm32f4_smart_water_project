@@ -2,3 +2,6 @@ smart_water/*.json
 smart_water/tags
 smart_water/.cache/*
 smart_water/.clangd
+smart_water/.mxproject
+smart_water/.cache/clangd/index/*.idx
+
