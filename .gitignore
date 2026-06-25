@@ -1,0 +1,4 @@
+smart_water/*.json
+smart_water/tags
+smart_water/.cache/*
+smart_water/.clangd
