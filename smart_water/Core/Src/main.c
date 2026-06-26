@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "dma.h"
 #include "i2c.h"
 #include "spi.h"
@@ -35,6 +36,10 @@
 #include "disk.h"
 #include "lora.h"
 #include <string.h>
+#include "FreeRTOSConfig.h"
+#include "task.h"
+#include "queue.h"
+#include "FreeRTOS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,12 +65,18 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
+static void vInfo_Parse(void *pvParameters);
+static void vLora_Receive(void *pvParameters);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+TaskHandle_t g_lora_receive_handle = NULL;
+TaskHandle_t g_info_parse_handle = NULL;
+QueueHandle_t g_lora_queue_handle = NULL;
 
 /* USER CODE END 0 */
 
@@ -73,6 +84,7 @@ void SystemClock_Config(void);
   * @brief  The application entry point.
   * @retval int
   */
+
 int main(void)
 {
 
@@ -124,22 +136,34 @@ int main(void)
     LOG_INFO("Disk initialization successful!!");
   }
   //HAL_Delay(100); 
+ 
+  MX_FREERTOS_Init();
+  g_lora_queue_handle = xQueueCreate(5, sizeof(lora.lora_rbuff));
+  xTaskCreate(vLora_Receive, "vlorareceive", 128, NULL, 2, &g_lora_receive_handle);
+  xTaskCreate(vInfo_Parse, "vInfo_Parse", 256, NULL, 3, &g_info_parse_handle);
+  osKernelStart();
+
+
   /* USER CODE END 2 */
+
+  /* Call init function for freertos objects (in cmsis_os2.c) */
+   
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    if(lora.rx_flag)
-    {
-      lora.rx_flag = false;
-      LOG_INFO("The receive data is %s", lora.lora_rbuff);
-      HAL_UARTEx_ReceiveToIdle_DMA(&huart1, lora.lora_rbuff, sizeof(lora.lora_rbuff));
-    }
+  while (1);
+  //{
+  //  if(lora.rx_flag)
+  //  {
+  //    lora.rx_flag = false;
+  //    LOG_INFO("The receive data is %s", lora.lora_rbuff);
+  //    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, lora.lora_rbuff, sizeof(lora.lora_rbuff));
+  //  }
+  //}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
   /* USER CODE END 3 */
 }
 
@@ -218,12 +242,45 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
    {
      if(size > 0)
      {
-       lora.rx_flag = true;
        lora.lora_rbuff[size] = '\0';
+       lora.rx_flag = true;
      }
    }
 
 }
+
+
+
+/* 
+ * @brief: Create lora task..
+ */
+static void vLora_Receive(void *pvParameters)
+{
+  while(1)
+  {
+    if(lora.rx_flag)
+    {
+      lora.rx_flag = false;
+      xQueueSend(g_lora_queue_handle, &lora.lora_rbuff, 100);
+      HAL_UARTEx_ReceiveToIdle_DMA(&huart1, lora.lora_rbuff, sizeof(lora.lora_rbuff));
+    }
+  }
+  vTaskDelay(10);
+}
+static void vInfo_Parse(void *pvParameters)
+{
+ uint8_t lora_buff[sizeof(lora.lora_rbuff)] = {0};
+ while(1)
+ {
+    if(xQueueReceive(g_lora_queue_handle, &lora_buff, portMAX_DELAY) == pdPASS)
+    {
+      LOG_INFO("The received the data is %s", lora_buff);
+    }
+ }
+    vTaskDelay(100);
+}
+
+
 /* USER CODE END 4 */
 
 /**

@@ -2,7 +2,7 @@
 #define __LORA_H
 #include <stdint.h>
 #include <stdbool.h>
-#define RECEIVE_LORA_DATA_AMOUNT_MAX 200u
+#define RECEIVE_LORA_DATA_AMOUNT_MAX 100u
 
 typedef struct
 {
