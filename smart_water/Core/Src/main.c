@@ -21,7 +21,6 @@
 #include "dma.h"
 #include "i2c.h"
 #include "spi.h"
-#include "stm32f4xx_hal.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -34,6 +33,8 @@
 #include "eeprom.h"
 #include "flash.h"
 #include "disk.h"
+#include "lora.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -105,6 +106,7 @@ int main(void)
   log_init(LOG_MSG_ERROR);
   eeprom_init();
   flash_init();
+  lora_init();
   const uint8_t test_buff[] = {"This is for the disk test.... here is some text: \
   The terminal cursor pulsed with the steady, rhythmic beat of an artificial heart.\
   In the dim, fluorescent chill of the Level 4 lab at Teletrac Navman’s Auckland headquarters, \
@@ -124,18 +126,19 @@ int main(void)
   //HAL_Delay(100); 
   /* USER CODE END 2 */
 
-  /* Infinite loop ////*/
+  /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    if(lora.rx_flag)
+    {
+      lora.rx_flag = false;
+      LOG_INFO("The receive data is %s", lora.lora_rbuff);
+      HAL_UARTEx_ReceiveToIdle_DMA(&huart1, lora.lora_rbuff, sizeof(lora.lora_rbuff));
+    }
     /* USER CODE END WHILE */
-    /* USER CODE BEGIN 3 */
-    
-      p_disk->write(0x00, (uint8_t*)test_buff, sizeof(test_buff));
-      p_disk->read(0x00, read_buff, sizeof(read_buff));
-      LOG_INFO("Disk read: %s", read_buff);
-      while(1);
 
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -208,6 +211,18 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
     Log.tx_busy =false;
   }
   }
+}
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+   if(huart->Instance == USART1)
+   {
+     if(size > 0)
+     {
+       lora.rx_flag = true;
+       lora.lora_rbuff[size] = '\0';
+     }
+   }
+
 }
 /* USER CODE END 4 */
 
