@@ -66,6 +66,7 @@ Core/Src/disk.c \
 Core/Src/lora.c \
 Core/Src/eeprom.c \
 Core/Src/flash.c \
+Core/Src/tank.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c_ex.c \
 Core/Src/spi.c \
