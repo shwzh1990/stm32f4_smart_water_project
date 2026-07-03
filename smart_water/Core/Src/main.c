@@ -40,6 +40,8 @@
 #include "task.h"
 #include "queue.h"
 #include "FreeRTOS.h"
+#include "tank.h"
+#include "semphr.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,6 +78,7 @@ static void vLora_Receive(void *pvParameters);
 /* USER CODE BEGIN 0 */
 TaskHandle_t g_lora_receive_handle = NULL;
 TaskHandle_t g_info_parse_handle = NULL;
+TaskHandle_t g_info_store_handle = NULL;
 QueueHandle_t g_lora_queue_handle = NULL;
 
 /* USER CODE END 0 */
@@ -119,12 +122,6 @@ int main(void)
   eeprom_init();
   flash_init();
   lora_init();
-  const uint8_t test_buff[] = {"This is for the disk test.... here is some text: \
-  The terminal cursor pulsed with the steady, rhythmic beat of an artificial heart.\
-  In the dim, fluorescent chill of the Level 4 lab at Teletrac Navman’s Auckland headquarters, \
-  Shi Weizhong sat motionless, his face illuminated by the amber glow of a high-refresh-rate monitor.\
-  // Outside, the rain was a relentless, horizontal sheet sweeping across Flat Bush this is !@#@%$$#^%$^&%$#^&%^&"};
-  uint8_t read_buff[sizeof(test_buff)] = {0};
   flash_driver_register();
   eeprom_driver_register();
   if(disk_init() == false)
@@ -140,7 +137,8 @@ int main(void)
   MX_FREERTOS_Init();
   g_lora_queue_handle = xQueueCreate(5, sizeof(lora.lora_rbuff));
   xTaskCreate(vLora_Receive, "vlorareceive", 128, NULL, 2, &g_lora_receive_handle);
-  xTaskCreate(vInfo_Parse, "vInfo_Parse", 256, NULL, 3, &g_info_parse_handle);
+  xTaskCreate(vInfo_Parse, "vInfo_Parse", 256, NULL, 4, &g_info_parse_handle);
+  xTaskCreate(vInfo_Store, "vInfo_Store", 256, NULL, 3, &g_info_store_handle);
   osKernelStart();
 
 
@@ -250,7 +248,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 }
 
 
-
+SemaphoreHandle_t xBinarySemaphore;
 /* 
  * @brief: Create lora task..
  */
@@ -270,16 +268,31 @@ static void vLora_Receive(void *pvParameters)
 static void vInfo_Parse(void *pvParameters)
 {
  uint8_t lora_buff[sizeof(lora.lora_rbuff)] = {0};
+ xBinarySemaphore = xSemaphoreCreateBinary();
  while(1)
  {
     if(xQueueReceive(g_lora_queue_handle, &lora_buff, portMAX_DELAY) == pdPASS)
     {
-      LOG_INFO("The received the data is %s", lora_buff);
+     parse_tank_info(lora_buff); 
+     xSemaphoreGive(xBinarySemaphore);
     }
  }
     vTaskDelay(100);
 }
 
+static void vInfo_Store(void * pvParameters)
+{
+  while(1)
+  {
+    if(xSemaphoreTake(xBinarySemaphore, portMax_DELAY) == pdPASS)
+    {
+     // p_disk->write(TANKN_ADDRESS(tank_num))
+    }
+  
+  }
+  vTaskDelay(100);
+
+}
 
 /* USER CODE END 4 */
 
