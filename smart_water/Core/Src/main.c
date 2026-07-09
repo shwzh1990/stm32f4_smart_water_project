@@ -70,6 +70,7 @@ void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 static void vInfo_Parse(void *pvParameters);
 static void vLora_Receive(void *pvParameters);
+static void vInfo_Store(void * pvParameters);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -132,8 +133,12 @@ int main(void)
   {
     LOG_INFO("Disk initialization successful!!");
   }
-  //HAL_Delay(100); 
- 
+
+  if(is_magic_number_in_disk() == true)
+  {
+   tank_data_restore();
+  }
+
   MX_FREERTOS_Init();
   g_lora_queue_handle = xQueueCreate(5, sizeof(lora.lora_rbuff));
   xTaskCreate(vLora_Receive, "vlorareceive", 128, NULL, 2, &g_lora_receive_handle);
@@ -262,8 +267,8 @@ static void vLora_Receive(void *pvParameters)
       xQueueSend(g_lora_queue_handle, &lora.lora_rbuff, 100);
       HAL_UARTEx_ReceiveToIdle_DMA(&huart1, lora.lora_rbuff, sizeof(lora.lora_rbuff));
     }
+    vTaskDelay(10);
   }
-  vTaskDelay(10);
 }
 static void vInfo_Parse(void *pvParameters)
 {
@@ -273,22 +278,27 @@ static void vInfo_Parse(void *pvParameters)
  {
     if(xQueueReceive(g_lora_queue_handle, &lora_buff, portMAX_DELAY) == pdPASS)
     {
-     parse_tank_info(lora_buff); 
-     xSemaphoreGive(xBinarySemaphore);
+     const uint8_t tank_num = parse_tank_info(lora_buff); 
+     if(tank_num < TANK_NUM)
+     {
+       xTaskNotify(g_info_store_handle, tank_num, eSetValueWithOverwrite);
+     }
     }
- }
+
     vTaskDelay(100);
+ }
 }
 
 static void vInfo_Store(void * pvParameters)
 {
   while(1)
   {
-    if(xSemaphoreTake(xBinarySemaphore, portMax_DELAY) == pdPASS)
+    uint8_t tank_num = 0;
+    if(xTaskNotifyWait(0x00, 0xFFFFFFFF, (uint32_t*)&tank_num, portMAX_DELAY) == pdPASS)
     {
-     // p_disk->write(TANKN_ADDRESS(tank_num))
+     p_disk->write(TANKN_ADDRESS(tank_num), (uint8_t*)&tank[tank_num], sizeof(tank[tank_num]));
+     LOG_INFO("Tank %d is saved!!", tank_num);
     }
-  
   }
   vTaskDelay(100);
 

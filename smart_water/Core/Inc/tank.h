@@ -28,12 +28,15 @@ typedef struct
   bool new_tank;
 }tank_receive_temp_t;
 
-
+#define MAGIC_NUM 0xABCDEFu
+#define TANK1_ADDRESS 0x100
 #define TANK_NUM 12u
 #define TANKN_ADDRESS(tank_num) (TANK1_ADDRESS + sizeof(tank_config_t) * tank_num)
+extern tank_config_t tank[12];
 
-#define TANK1_ADDRESS 0x100
 
 uint8_t parse_tank_info(uint8_t* buff);
+void tank_data_restore(void);
+bool is_magic_number_in_disk(void);
 
 #endif

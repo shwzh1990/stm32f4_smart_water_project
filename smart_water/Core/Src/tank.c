@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#define DEBUG
+#include "disk.h"
+//#define DEBUG
 
 tank_config_t tank[12];
 tank_receive_temp_t tank_info_temp;
@@ -16,29 +17,48 @@ uint8_t parse_tank_info(uint8_t buff[])
   const char* delim = ",";
   uint8_t tank_num = UINT8_MAX;
   char* token = strtok((char*)buff, delim);
-
-  if(strcmp(token, "R") == 0)
+  if(strcmp(token, "tank_info") == 0)
   {
-    tank_info_temp.new_tank = true;
+    token = strtok(NULL, delim);
+    uint8_t tank_num = atoi(token);
+    if(tank[tank_num].tank_enable)
+    {
+      LOG_INFO("The Tank serial number is %s", tank[tank_num].tank_info.serial_number);
+      HAL_Delay(10);
+      LOG_INFO("The Tank battery level is %d", tank[tank_num].tank_info.battery_level);
+      LOG_INFO("The Tank adc level is %d", tank[tank_num].tank_info.adc_level);
+      LOG_INFO("The Tank signal level is %d", tank[tank_num].tank_info.signal_level);
+    }
+    else
+    {
+      LOG_INFO("This tank does not exist!!");
+    }
+    return UINT8_MAX;
   }
-  else if(strcmp(token, "N") == 0)
+  else
   {
-   tank_info_temp.new_tank = false;
+    if(strcmp(token, "R") == 0)
+    {
+      tank_info_temp.new_tank = true;
+    }
+    else if(strcmp(token, "N") == 0)
+    {
+      tank_info_temp.new_tank = false;
+    }
+
+    token = strtok(NULL, delim);
+    memcpy((void*)tank_info_temp.tank_info.serial_number, (const void*)token, sizeof(tank_info_temp.tank_info.serial_number));
+    tank_info_temp.tank_info.serial_number[8] = '\0';
+
+    token = strtok(NULL, delim);
+    tank_info_temp.tank_info.battery_level = atoi(token);
+
+    token = strtok(NULL, delim);
+    tank_info_temp.tank_info.adc_level = atoi(token);
+
+    token = strtok(NULL, delim);
+    tank_info_temp.tank_info.signal_level = atoi(token);
   }
-  
-  token = strtok(NULL, delim);
-  memcpy((void*)tank_info_temp.tank_info.serial_number, (const void*)token, sizeof(tank_info_temp.tank_info.serial_number));
-  tank_info_temp.tank_info.serial_number[8] = '\0';
-
-  token = strtok(NULL, delim);
-  tank_info_temp.tank_info.battery_level = atoi(token);
-
-  token = strtok(NULL, delim);
-  tank_info_temp.tank_info.adc_level = atoi(token);
-
-  token = strtok(NULL, delim);
-  tank_info_temp.tank_info.signal_level = atoi(token);
-
 
   if(tank_info_temp.new_tank)
   {
@@ -91,4 +111,29 @@ static uint8_t tank_number_find_by_serial_number(uint8_t * buff)
    }
   }
   return UINT8_MAX;
+}
+
+void tank_data_restore(void)
+{
+ for(uint8_t i = 0; i < TANK_NUM; i++)
+ {
+   p_disk->read(TANKN_ADDRESS(i), (uint8_t*)&tank[i], sizeof(tank[i]));
+ }
+
+}
+
+bool is_magic_number_in_disk(void)
+{
+  uint32_t magic_num = 0;
+  p_disk->read(0x00, (uint8_t*)&magic_num, sizeof(uint32_t));
+  if(magic_num == MAGIC_NUM)
+  {
+    return true;
+  }
+  else
+  {
+   magic_num = MAGIC_NUM;
+   p_disk->write(0x00, (uint8_t*)&magic_num, sizeof(magic_num));
+  }
+  return false;
 }
