@@ -134,6 +134,11 @@ bool is_magic_number_in_disk(void)
   {
    magic_num = MAGIC_NUM;
    p_disk->write(0x00, (uint8_t*)&magic_num, sizeof(magic_num));
+   memset((void*)&tank[0], 0, sizeof(tank));
+   for(uint8_t i = 0; i < TANK_NUM; i++)
+   {
+     p_disk->write(TANKN_ADDRESS(i), (uint8_t*)&tank[i], sizeof(tank_config_t));
+   }
   }
   return false;
 }

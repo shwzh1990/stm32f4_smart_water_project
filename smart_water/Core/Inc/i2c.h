@@ -29,6 +29,7 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
+#include "stm32f4xx_hal_i2c.h"
 
 /* USER CODE END Includes */
 

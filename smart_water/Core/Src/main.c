@@ -21,7 +21,9 @@
 #include "cmsis_os.h"
 #include "dma.h"
 #include "i2c.h"
+#include "rtc.h"
 #include "spi.h"
+#include "stm32f4xx_hal_rtc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -68,9 +70,6 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
-static void vInfo_Parse(void *pvParameters);
-static void vLora_Receive(void *pvParameters);
-static void vInfo_Store(void * pvParameters);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -80,15 +79,20 @@ static void vInfo_Store(void * pvParameters);
 TaskHandle_t g_lora_receive_handle = NULL;
 TaskHandle_t g_info_parse_handle = NULL;
 TaskHandle_t g_info_store_handle = NULL;
+TaskHandle_t g_rtos_handle = NULL;
 QueueHandle_t g_lora_queue_handle = NULL;
 
+static void vLora_Receive(void *pvParameters);
+static void vInfo_Parse(void *pvParameters);
+static void vInfo_Store(void * pvParameters);
+static void vRTC_Data_Save(void * pvParameters);
+static void Save_Tank_Info(void);
 /* USER CODE END 0 */
 
 /**
   * @brief  The application entry point.
   * @retval int
   */
-
 int main(void)
 {
 
@@ -116,6 +120,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
+  MX_RTC_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
@@ -144,13 +149,18 @@ int main(void)
   xTaskCreate(vLora_Receive, "vlorareceive", 128, NULL, 2, &g_lora_receive_handle);
   xTaskCreate(vInfo_Parse, "vInfo_Parse", 256, NULL, 4, &g_info_parse_handle);
   xTaskCreate(vInfo_Store, "vInfo_Store", 256, NULL, 3, &g_info_store_handle);
+  xTaskCreate(vRTC_Data_Save, "vRTC_Data_Save", 256, NULL, 3, &g_rtos_handle);
   osKernelStart();
 
 
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
-   
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
   /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
@@ -187,8 +197,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -303,7 +314,35 @@ static void vInfo_Store(void * pvParameters)
   vTaskDelay(100);
 
 }
+static void vRTC_Data_Save(void * pvParameters)
+{
+  RTC_TimeTypeDef real_time;
+  RTC_DateTypeDef real_date;
+  while(1)
+  {
+    if(HAL_RTC_GetDate(&hrtc, &real_date, RTC_FORMAT_BIN) != HAL_OK)
+    {
+     LOG_ERROR("Get RTC date failed!\n");
+     HAL_RTC_Init(&hrtc);
+    }
+    if(HAL_RTC_GetTime(&hrtc, &real_time, RTC_FORMAT_BIN) != HAL_OK)
+    {
+     LOG_ERROR("Get RTC time failed!\n");
+     HAL_RTC_Init(&hrtc);
+    }
+    if((real_time.Hours == 23) && (real_time.Seconds == 59))
+    {
+      Save_Tank_Info(); 
+    }
+    vTaskDelay(1000);
+  }
+}
 
+static void Save_Tank_Info(void)
+{
+  p_disk->write(TANKN_ADDRESS(0), (uint8_t*)&tank[0], sizeof(tank));
+
+}
 /* USER CODE END 4 */
 
 /**
