@@ -330,7 +330,7 @@ static void vRTC_Data_Save(void * pvParameters)
      LOG_ERROR("Get RTC time failed!\n");
      HAL_RTC_Init(&hrtc);
     }
-    if((real_time.Hours == 23) && (real_time.Seconds == 59))
+    if((real_time.Hours == 23) && (real_time.Seconds == 59) && (real_time.Minutes == 59))
     {
       Save_Tank_Info(); 
     }
